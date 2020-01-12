@@ -24,11 +24,6 @@ rear="Neutral"
 prevRear="Neutral"
 prevFront="Neutral"
 inputArray_Front=['x','x','x','x','x','x','x','x','x','x'] 	
-#Az inputArray tömb az utolsó 10 beérkezett jelet figyeli, ezeket kiértékelve
-#dönti el, hogy merre kormányozza az autót
-#ezt a megoldást találtuk ki a megbízhatatlan hálózat problémájára,
-#ugyanis az adatfolyam 1-2 bájtnyi szakadásánál a kormány alaphelyzetre állt
-#arra a rövid időre, ettől a vezetés nem ment folyékonyan
 
 global control
 global servo
@@ -47,10 +42,9 @@ def evaluate(c):
 	return value
 	
 
-def frontWheelListener(): #külön szál kezeli az első kerék kormányzását
+def frontWheelListener():
 	control = [5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10]
-	servo = 22 #pin
-	GPIO.setmode(GPIO.BOARD)
+	servo = 14 #pin
 	GPIO.setup(servo,GPIO.OUT)
 	p=GPIO.PWM(servo,50)
 	p.start(2.5)
@@ -58,7 +52,7 @@ def frontWheelListener(): #külön szál kezeli az első kerék kormányzását
 	while(True):
 		try:
 			if(front=="Left"): #balra
-				p.ChangeDutyCycle(5.9)
+				p.ChangeDutyCycle(5.8)
 				time.sleep(0.1)
 			else:
 				if(front=="Right"): #jobbra
@@ -69,37 +63,89 @@ def frontWheelListener(): #külön szál kezeli az első kerék kormányzását
 					time.sleep(0.1)
 		except KeyboardInterrupt:
 			GPIO.cleanup()
-    
-wiringpi.wiringPiSetup() #a raspberry pi általunk használt pinjeit "output" cimkével látjuk el
+
+time.sleep(10)			
+
+wiringpi.wiringPiSetup()
 wiringpi.pinMode(0,1)       
 wiringpi.pinMode(22,1)
 wiringpi.pinMode(23,1)
 wiringpi.pinMode(24,1)
 wiringpi.pinMode(25,1)
+wiringpi.pinMode(27,1)
 
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #Socketet nyitunk
+in1 = 24
+in2 = 23
+en = 25
+temp1=1
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(in1,GPIO.OUT)
+GPIO.setup(in2,GPIO.OUT)
+GPIO.setup(en,GPIO.OUT)
+GPIO.output(in1,GPIO.LOW)
+GPIO.output(in2,GPIO.LOW)
+rear_p=GPIO.PWM(en,1000)
+
+rear_p.start(25)
+
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.connect(('192.0.0.8',1027))
 ipAddr=s.getsockname()[0]
-print(ipAddr) #kiírjuk az ip címet ami alapján csatlakozunk az autóra
+print(ipAddr)
 print socket.gethostname()
 mySocket = socket.socket()
 mySocket.bind((ipAddr,8080))
-mySocket.listen(1)	#1 csatlakozást vár
+mySocket.listen(1)
 
-wiringpi.digitalWrite(24,1) #az autó két hátsó lámpája felgyullad, ha az autó készen áll a kapcsolódásra,
-wiringpi.digitalWrite(25,1)	#ehhez a megfelelő két pinre "high" jelet adunk
-
+GPIO.setup(22,GPIO.OUT)
+GPIO.setup(27,GPIO.OUT)
+GPIO.output(22,GPIO.HIGH)
+GPIO.output(27,GPIO.HIGH)
 while True:
 		try:
 			print("Waiting for a connection...")
 			conn, addr = mySocket.accept() 
 			print("Connection from: "+str(addr))
-			thread = Thread(target = frontWheelListener, args = ()) #az első kerék kormányzásához való szál elindul
+			thread = Thread(target = frontWheelListener, args = ())
 			thread.start()
 			while True:
 				data = conn.recv(64)
 				if data:
-					# a beérkező adatfolyam alapján eldől az irányítás
+					if data.find("0")!=(-1):
+						rear_p.ChangeDutyCycle(5)
+						putInArray('x')
+					elif data.find("1")!=(-1):
+						rear_p.ChangeDutyCycle(10)
+						putInArray('x')
+					elif data.find("2")!=(-1):
+						rear_p.ChangeDutyCycle(20)
+						putInArray('x')
+					elif data.find("3")!=(-1):
+						rear_p.ChangeDutyCycle(30)
+						putInArray('x')
+					elif data.find("4")!=(-1):
+						rear_p.ChangeDutyCycle(40)
+						putInArray('x')
+					elif data.find("5")!=(-1):
+						rear_p.ChangeDutyCycle(50)
+						putInArray('x')
+					elif data.find("6")!=(-1):
+						rear_p.ChangeDutyCycle(60)
+						putInArray('x')
+					elif data.find("7")!=(-1):
+						rear_p.ChangeDutyCycle(70)
+						putInArray('x')
+					elif data.find("8")!=(-1):
+						rear_p.ChangeDutyCycle(80)
+						putInArray('x')
+					elif data.find("9")!=(-1):
+						rear_p.ChangeDutyCycle(90)
+						putInArray('x')
+					elif data.find("n")!=(-1):
+						rear_p.ChangeDutyCycle(100)
+						putInArray('x')
+						
 					if data.find("w")!=(-1):
 						rear="Forward"
 					else:
@@ -118,31 +164,21 @@ while True:
 						else:
 							if evaluate('a')==0 and evaluate('d')==0:
 								front="Neutral"
-						if data.find("q")!=(-1):		#ha "q" karakter érkezik be, az autó felvillantja lámpáit és kikapcsol
-							wiringpi.digitalWrite(22,1) 
-							wiringpi.digitalWrite(23,1)
-							wiringpi.digitalWrite(24,1)
-							wiringpi.digitalWrite(25,1)
+						if data.find("q")!=(-1):
+							GPIO.output(22,GPIO.HIGH)
+							GPIO.output(27,GPIO.HIGH)
 							time.sleep(0.3)
-							wiringpi.digitalWrite(22,0)
-							wiringpi.digitalWrite(23,0)
-							wiringpi.digitalWrite(24,0)
-							wiringpi.digitalWrite(25,0)
+							GPIO.output(22,GPIO.LOW)
+							GPIO.output(27,GPIO.LOW)
 							time.sleep(0.3)
-							wiringpi.digitalWrite(22,1)
-							wiringpi.digitalWrite(23,1)
-							wiringpi.digitalWrite(24,1)
-							wiringpi.digitalWrite(25,1)
+							GPIO.output(22,GPIO.HIGH)
+							GPIO.output(27,GPIO.HIGH)
 							time.sleep(0.3)
-							wiringpi.digitalWrite(22,0)
-							wiringpi.digitalWrite(23,0)
-							wiringpi.digitalWrite(24,0)
-							wiringpi.digitalWrite(25,0)
+							GPIO.output(22,GPIO.LOW)
+							GPIO.output(27,GPIO.LOW)
 							time.sleep(0.3)
-							wiringpi.digitalWrite(22,1)
-							wiringpi.digitalWrite(23,1)
-							wiringpi.digitalWrite(24,1)
-							wiringpi.digitalWrite(25,1)
+							GPIO.output(22,GPIO.HIGH)
+							GPIO.output(27,GPIO.HIGH)
 							command = "/usr/bin/sudo /sbin/shutdown 0"
 							import subprocess
 							process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
@@ -159,24 +195,22 @@ while True:
 								wiringpi.digitalWrite(23,0)
 								wiringpi.digitalWrite(24,0)
 								wiringpi.digitalWrite(25,0)				
-					
-					if data.find("x")!=(-1):	#az 'X' egyszerű nyugtajel, ha nem adunk parancsot ez folyamatosan érkezik a kliensről
-						putInArray('X')
-						
+												
 					if(rear=="Forward"):
-						wiringpi.digitalWrite(0,1)	
-						wiringpi.digitalWrite(2,0) 
+						GPIO.output(in1,GPIO.LOW)
+						GPIO.output(in2,GPIO.HIGH)
 						putInArray('w')
-					else:
-						wiringpi.digitalWrite(0,0)
-						wiringpi.digitalWrite(2,1) 
+					elif(rear=="Reverse"):
+						GPIO.output(in1,GPIO.HIGH)
+						GPIO.output(in2,GPIO.LOW)
 						putInArray('s')
+					else:
+						GPIO.output(in1,GPIO.LOW)
+						GPIO.output(in2,GPIO.LOW)
 												
 				else:
 					conn, addr = mySocket.accept() 
 		finally:
 			print("Connection closed.")
 			conn.close()
-
-
 
