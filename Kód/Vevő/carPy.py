@@ -3,6 +3,7 @@
 import socket
 import sys
 import wiringpi
+import db
 import time
 from threading import Thread
 import thread
@@ -64,7 +65,27 @@ def frontWheelListener():
 		except KeyboardInterrupt:
 			GPIO.cleanup()
 
-time.sleep(10)			
+start_millis=0
+last_commit=0
+db_commit_rate=500
+
+def getElapsed():
+	return (float)(int(round(time.time()*1000)) - start_millis)/1000
+
+def commitData(t,value):
+	global last_commit
+	
+	now=int(round(time.time()*1000))
+	if((now - last_commit) > db_commit_rate):
+		thread = Thread(target = db.commitValues, args = (getElapsed(),value))
+		thread.start()
+		last_commit=int(round(time.time()*1000))
+
+#time.sleep(10)			
+
+
+print("Dropping db values..")
+db.dropValues()
 
 wiringpi.wiringPiSetup()
 wiringpi.pinMode(0,1)       
@@ -102,47 +123,61 @@ GPIO.setup(22,GPIO.OUT)
 GPIO.setup(27,GPIO.OUT)
 GPIO.output(22,GPIO.HIGH)
 GPIO.output(27,GPIO.HIGH)
+
 while True:
 		try:
 			print("Waiting for a connection...")
 			conn, addr = mySocket.accept() 
 			print("Connection from: "+str(addr))
+			start_millis=int(round(time.time()*1000))
 			thread = Thread(target = frontWheelListener, args = ())
 			thread.start()
 			while True:
 				data = conn.recv(64)
 				if data:
 					if data.find("0")!=(-1):
+						commitData(getElapsed(),0)
 						rear_p.ChangeDutyCycle(5)
 						putInArray('x')
 					elif data.find("1")!=(-1):
+						commitData(getElapsed(),1)
 						rear_p.ChangeDutyCycle(10)
 						putInArray('x')
 					elif data.find("2")!=(-1):
+						commitData(getElapsed(),2)
 						rear_p.ChangeDutyCycle(20)
 						putInArray('x')
 					elif data.find("3")!=(-1):
+						commitData(getElapsed(),3)
 						rear_p.ChangeDutyCycle(30)
 						putInArray('x')
 					elif data.find("4")!=(-1):
+						commitData(getElapsed(),4)
 						rear_p.ChangeDutyCycle(40)
 						putInArray('x')
 					elif data.find("5")!=(-1):
+						commitData(getElapsed(),5)
 						rear_p.ChangeDutyCycle(50)
 						putInArray('x')
 					elif data.find("6")!=(-1):
+						commitData(getElapsed(),6)
 						rear_p.ChangeDutyCycle(60)
 						putInArray('x')
 					elif data.find("7")!=(-1):
+						commitData(getElapsed(),7)
 						rear_p.ChangeDutyCycle(70)
 						putInArray('x')
 					elif data.find("8")!=(-1):
+						commitData(getElapsed(),8)
 						rear_p.ChangeDutyCycle(80)
 						putInArray('x')
 					elif data.find("9")!=(-1):
+						print("aha")
+						commitData(getElapsed(),9)
 						rear_p.ChangeDutyCycle(90)
 						putInArray('x')
 					elif data.find("n")!=(-1):
+						commitData(getElapsed(),10)
 						rear_p.ChangeDutyCycle(100)
 						putInArray('x')
 						
